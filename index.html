@@ -123,7 +123,7 @@ function layoutLevel(keep){
 function alive(){ return inv.filter(i=>i.alive); }
 function invPos(i){ return {x:form.x+i.c*form.cw+Math.floor((form.cw-(i.type==='a1'?10:8))/2), y:form.y+i.r*form.ch, w:i.type==='a1'?10:8, h:8}; }
 function newGame(m){ mode=m||mode; level=1; score=0; lives=3; state='play'; layoutLevel(false); hintT=4000; ship.dead=0;
-  if(mode==='arena'){ inv=inv.filter(i=>i.r<3); arena={kills:0,nextRow:9000,squadT:14000,combo:0,comboT:0,start:performance.now(),sent:false}; squads=[]; waveT=1200; }
+  if(mode==='arena'){ online.rank=0; online.total=0; inv=inv.filter(i=>i.r<3); arena={kills:0,nextRow:9000,squadT:14000,combo:0,comboT:0,start:performance.now(),sent:false}; squads=[]; waveT=1200; }
 }
 function startArena(){ if(!store.name){ document.getElementById('nameBox').hidden=false; setTimeout(()=>document.getElementById('nameIn').focus(),50); return; } newGame('arena'); }
 document.getElementById('nameForm').addEventListener('submit',e=>{ e.preventDefault(); const n=cleanName(document.getElementById('nameIn').value); if(!n){ document.getElementById('nameIn').value=''; document.getElementById('nameIn').placeholder='KIES EEN ANDERE NAAM'; return; } store.name=n; save(); document.getElementById('nameBox').hidden=true; newGame('arena'); });
@@ -134,7 +134,20 @@ function arenaGameOver(){ if(arena.sent) return; arena.sent=true; const entry={n
   board.push(entry); board.sort((a,b)=>b.score-a.score); board=board.slice(0,100); store.arena=board; save(); lastRank=board.findIndex(e=>e===entry)+1; queueScore(entry); }
 let outbox=store.outbox||[];
 function queueScore(e){ outbox.push(e); store.outbox=outbox; save(); flushScores(); }
-function flushScores(){ /* online verzending volgt zodra de scoreservice er is */ }
+const CFG_URL='https://jimmyhonderd.github.io/vwab-arena/config.json'; let API=store.api||''; let online={top:null,rank:0,total:0,t:0};
+async function getApi(){ if(API) return API; try{ const d=await (await fetch(CFG_URL,{cache:'no-store'})).json(); if(d.api){ API=d.api; store.api=API; save(); } }catch(_){} return API; }
+async function sig(e){ const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(`invasie|${e.name}|${e.score}|${e.dur}|${e.ts}|vwab`)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('').slice(0,16); }
+let flushing=false;
+async function flushScores(){ if(flushing||!outbox.length) return; flushing=true;
+  try{ const api=await getApi(); if(!api) return;
+    while(outbox.length){ const e=outbox[0]; const r=await fetch(api+'/score',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({game:'invasie',name:e.name,score:e.score,dur:e.dur,ts:e.ts,sig:await sig(e)})});
+      if(r.status>=500||r.status===429) break; // later opnieuw
+      const d=await r.json().catch(()=>({})); if(r.ok && d.rank && e.score===score && state==='over'){ online.rank=d.rank; online.total=d.total; }
+      outbox.shift(); store.outbox=outbox; save(); }
+    await fetchTop();
+  }catch(_){ } finally{ flushing=false; } }
+async function fetchTop(){ try{ const api=await getApi(); if(!api) return; const d=await (await fetch(api+'/top?game=invasie&n=10',{cache:'no-store'})).json(); online.top=d.top; online.t=Date.now(); if(!online.rank && state==='over' && mode==='arena'){ const rr=await (await fetch(api+'/rank?game=invasie&score='+score)).json(); online.rank=rr.rank; online.total=rr.total; } }catch(_){ } }
+setInterval(()=>{ if(outbox.length) flushScores(); },20000); addEventListener('online',flushScores); getApi().then(()=>{ if(outbox.length) flushScores(); });
 function nextLevel(){ level++; layoutLevel(false); waveT=1500; }
 function msg(s,x,y,col){ msgs.push({s,x,y,l:900,col:col||P.white}); }
 function burst(x,y,col,n){ for(let i=0;i<n;i++){ const a=Math.random()*Math.PI*2, s=0.3+Math.random()*1.2; parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:250+Math.random()*350,c:col}); } }
@@ -267,7 +280,7 @@ function titleScreen(t){
   const fy=H*0.80; for(let c=0;c<6;c++){ const ty=['a3','a2','a1'][c%3]; drawInvader(ty,W/2-36+c*12+(ty==='a1'?-1:0),fy,(t/500|0)&1,colFor(ty)); }
   ctx.drawImage(shipSprite(),W/2-4|0,fy+16|0);
   ctx.strokeStyle=P.yel; ctx.lineWidth=1; ctx.strokeRect(M,H*0.40,W-2*M,H*0.12); ctx.strokeStyle=P.cyan; ctx.strokeRect(M,H*0.58,W-2*M,H*0.10);
-  text('ARENA',W/2,H*0.40+4,2,P.yel,'c'); text('EINDELOZE INVASIE · ONLINE SCOREBORD',W/2,H*0.40+22,1,'rgba(255,255,255,.75)','c',0); if(board.length) text('TOP: '+board[0].name+' '+board[0].score,W/2,H*0.40+31,1,P.yel,'c',0);
+  text('ARENA',W/2,H*0.40+4,2,P.yel,'c'); text('EINDELOZE INVASIE · ONLINE SCOREBORD',W/2,H*0.40+22,1,'rgba(255,255,255,.75)','c',0); const tp=(online.top&&online.top[0])||board[0]; if(tp) text('TOP: '+tp.name+' '+tp.score,W/2,H*0.40+31,1,P.yel,'c',0);
   text('KLASSIEK',W/2,H*0.58+4,2,P.cyan,'c'); text('LEVELS · BEST '+best,W/2,H*0.58+22,1,'rgba(255,255,255,.75)','c',0);
   text('SLEEP = BEWEGEN · TIK/VASTHOUDEN = VUREN',W/2,H*0.74+8,1,'rgba(255,255,255,.7)','c',0);
   if(store.name) text('SPELER: '+store.name,W/2,H*0.74+18,1,P.green,'c',0);
@@ -296,8 +309,10 @@ function draw(t){
   if(flash>0){ ctx.fillStyle=`rgba(255,60,60,${flash/900})`; ctx.fillRect(0,0,W,H); }
   if(state==='pause'){ veil(); text('PAUZE',W/2,H*0.42,3,P.yel,'c'); text('TIK OM VERDER TE GAAN',W/2,H*0.42+26,1,P.white,'c'); }
   if(state==='over'){ veil();
-    if(mode==='arena'){ text('GAME OVER',W/2,H*0.14,3,P.red,'c'); text(store.name+'  ·  '+score,W/2,H*0.14+26,2,P.yel,'c'); text(lastRank?('JE STAAT #'+lastRank+' VAN '+board.length):'',W/2,H*0.14+44,1,P.cyan,'c');
-      text('TOP 10',W/2,H*0.14+62,1,P.white,'c'); board.slice(0,10).forEach((e,i)=>{ const y=H*0.14+74+i*10; const me=e.name===store.name&&e.score===score; text((i+1)+'. '+e.name,W/2-40,y,1,me?P.yel:P.white,'l',0); text(e.score,W/2+40,y,1,me?P.yel:P.cyan,'r',0); });
+    if(mode==='arena'){ text('GAME OVER',W/2,H*0.14,3,P.red,'c'); text(store.name+'  ·  '+score,W/2,H*0.14+26,2,P.yel,'c');
+      const rk=online.rank?('JE STAAT #'+online.rank+' VAN '+online.total+' ONLINE'):(outbox.length?'SCORE WORDT VERZONDEN…':(lastRank?('LOKAAL #'+lastRank+' VAN '+board.length):''));
+      text(rk,W/2,H*0.14+44,1,P.cyan,'c'); const lst=online.top||board.slice(0,10);
+      text(online.top?'TOP 10 ONLINE':'TOP 10 OP DIT TOESTEL',W/2,H*0.14+62,1,P.white,'c'); lst.slice(0,10).forEach((e,i)=>{ const y=H*0.14+74+i*10; const me=e.name===store.name&&e.score===score; text((i+1)+'. '+e.name,W/2-40,y,1,me?P.yel:P.white,'l',0); text(e.score,W/2+40,y,1,me?P.yel:P.cyan,'r',0); });
       text('TIK VOOR NIEUW POTJE',W/2,H*0.14+74+105,1,P.white,'c'); }
     else { text('GAME OVER',W/2,H*0.36,3,P.red,'c'); text('SCORE '+score,W/2,H*0.36+28,2,P.white,'c'); text('LEVEL '+level,W/2,H*0.36+46,1,P.cyan,'c'); text(score>=best&&score>0?'NIEUW RECORD!':'BEST '+best,W/2,H*0.36+58,1,P.yel,'c'); text('TIK VOOR NIEUW SPEL',W/2,H*0.36+76,1,P.white,'c'); } }
 }
