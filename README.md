@@ -2,7 +2,7 @@
 
 Pixel-invaders in "Vroeger was alles beter"-stijl met een LEDJOCKEY-tintje.
 
-**Speel / installeer:** https://jimmyhonderd.github.io/invasie-inator/
+**Speel / installeer:** https://jimmyhonderd.github.io/Invasie-inator/
 
 ## Installeren op Android
 
