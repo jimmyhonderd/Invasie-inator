@@ -1,0 +1,18 @@
+{
+  "id": "/invasie-inator/app",
+  "name": "Invasie-inator",
+  "short_name": "Invasie-inator",
+  "description": "Pixel-invaders in VWAB-stijl met een LEDJOCKEY-tintje.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "lang": "nl",
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
