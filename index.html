@@ -71,7 +71,7 @@ let W=180,H=320,scale=1,portrait=true,DPR=1;
 function fit(){
   const vw=document.body.clientWidth, vh=document.body.clientHeight;
   portrait = vh>=vw*1.05;
-  scale=Math.max(1,Math.floor(portrait?vw/200:vh/220));
+  scale=Math.max(1,Math.floor(portrait?vw/150:vh/180));
   if(portrait){ W=Math.floor(vw/scale); H=Math.min(Math.floor(vh/scale),Math.round(W*2.1)); }
   else { H=Math.floor(vh/scale); W=Math.min(Math.floor(vw/scale),Math.round(H*1.9)); }
   cv.width=W; cv.height=H; cv.style.width=W*scale+'px'; cv.style.height=H*scale+'px'; ctx.imageSmoothingEnabled=false;
@@ -94,11 +94,11 @@ function text(s,x,y,sc,col,align,glow){
 let state='title', level=1, score=0, lives=3, best=store.best||0, t_last=0, hintT=0, shake=0, flash=0, waveT=0;
 let ship={x:0,y:0,w:9,h:8,cd:0,dead:0}, shots=[], bombs=[], inv=[], bunkers=[], parts=[], ufo=null, ufoT=0, msgs=[];
 let form={x:0,y:0,dir:1,step:0,timer:0,frame:0,cols:0,rows:0,cw:0,ch:0};
-let playArea={top:0,bottom:0}, M=16;
+let playArea={top:0,bottom:0}, M=16, BAND=30;
 function layoutLevel(keep){
-  const hudH=portrait?22:16; playArea={top:hudH,bottom:H-14};
+  const hudH=portrait?24:22; BAND=portrait?34:22; playArea={top:hudH,bottom:H-BAND-4};
   ship.y=playArea.bottom-ship.h; if(!keep||ship.x===0) ship.x=W/2-ship.w/2;
-  const cols=portrait?8:11, rows=5; form.cols=cols; form.rows=rows; M=portrait?16:Math.max(16,Math.round(W*0.12)); form.cw=portrait?Math.floor((W-2*M-4)/cols):Math.floor(Math.min(20,(W-2*M-20)/cols)); form.ch=portrait?13:12;
+  const cols=Math.max(6,Math.min(portrait?9:12,Math.floor((W-2*M-4)/12))), rows=5; form.cols=cols; form.rows=rows; M=portrait?16:Math.max(16,Math.round(W*0.12)); form.cw=12; form.ch=11;
   if(!keep){ form.x=Math.round((W-cols*form.cw)/2); form.y=playArea.top+10+Math.min(24,(level-1)*4); form.dir=1; form.timer=0; form.frame=0;
     inv=[]; for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) inv.push({c,r,type:r===0?'a3':r<3?'a2':'a1',alive:true});
     bunkers=[]; const nb=portrait?3:4, bw=22, by=playArea.bottom-ship.h-22, gap=((W-2*M)-nb*bw)/(nb+1);
@@ -134,7 +134,7 @@ addEventListener('keydown',e=>{ if(e.repeat) return; if(state==='title'||state==
   keys[e.key]=true; if(e.key===' '){ e.preventDefault(); fireHeld=true; fire(); } });
 addEventListener('keyup',e=>{ keys[e.key]=false; if(e.key===' ') fireHeld=false; });
 document.addEventListener('visibilitychange',()=>{ if(document.hidden&&state==='play') state='pause'; });
-function fire(){ if(state!=='play'||ship.dead>0||ship.cd>0||shots.length>=2) return; shots.push({x:ship.x+4,y:ship.y-2}); ship.cd=260; }
+function fire(){ if(state!=='play'||ship.dead>0||ship.cd>0||shots.length>=5) return; shots.push({x:ship.x+4,y:ship.y-2}); ship.cd=150; }
 
 /* ---------- update ---------- */
 function update(dt){
@@ -202,11 +202,20 @@ function sideColumns(t){ // decorative invader columns in margins
   }
   ctx.globalAlpha=1;
 }
+const LETB={V:['10001','10001','10001','01010','00100'],W:['10001','10001','10101','10101','01010'],A:['01110','10001','11111','10001','10001'],B:['11110','10001','11110','10001','11110']};
+function band(t){
+  const y0=H-BAND; ctx.fillStyle='#000'; ctx.fillRect(0,y0,W,BAND);
+  ctx.fillStyle='rgba(57,255,90,.35)'; ctx.fillRect(0,y0,W,1);
+  const cs=Math.floor((BAND-(portrait?12:6))/5), gap=cs*2, lw=5*cs, total=4*lw+3*gap, x0=Math.round((W-total)/2), ly=y0+(portrait?4:2);
+  [['V',P.green],['W',P.cyan],['A',P.yel],['B',P.mag]].forEach(([l,c],i)=>{ ctx.fillStyle=c; LETB[l].forEach((row,ry)=>[...row].forEach((v,rx)=>{ if(v==='1'){ ctx.globalAlpha=0.75+0.25*Math.sin(t*0.003+i+rx*0.5); ctx.fillRect(x0+i*(lw+gap)+rx*cs,ly+ry*cs,cs,cs);} })); });
+  ctx.globalAlpha=1;
+  if(portrait) text('VROEGER WAS ALLES BETER',W/2,ly+5*cs+1,1,'rgba(34,230,255,.7)','c',0);
+}
 function hud(){
   text('SCORE',4,3,1,P.white,'l'); text(String(score).padStart(6,'0'),4,11,1,P.white,'l');
   text('LEVEL '+String(level).padStart(2,'0'),W/2,3,1,P.yel,'c');
   text('LIVES',W-4,3,1,P.cyan,'r');
-  for(let i=0;i<Math.max(0,Math.min(lives,5));i++) ctx.drawImage(shipSprite(),W-4-(i+1)*11,11,9,8);
+  for(let i=0;i<Math.max(0,Math.min(lives,5));i++) ctx.drawImage(shipSprite(),W-4-(i+1)*11,12,9,8);
   text('BEST '+best,W/2,11,1,'rgba(255,255,255,.55)','c',0);
   ctx.fillStyle='rgba(255,255,255,.45)'; ctx.fillRect(W-14,4,2,7); ctx.fillRect(W-10,4,2,7);
 }
@@ -241,7 +250,7 @@ function draw(t){
   if(ufo) ctx.drawImage(sprite(SPR.ufo,P.purple,1),ufo.x|0,ufo.y|0);
   for(const q of parts){ ctx.fillStyle=q.c; ctx.fillRect(q.x|0,q.y|0,1,1); }
   ctx.restore();
-  hud();
+  band(t); hud();
   for(const m of msgs) text(m.s,m.x,m.y-(900-m.l)*0.01,2,m.col,'c');
   if(waveT>0) text('LEVEL '+level,W/2,H*0.42,3,P.yel,'c');
   if(hintT>0 && level===1){ text('SLEEP = BEWEGEN · TIK = VUREN',W/2,playArea.bottom-44,1,'rgba(255,255,255,.75)','c',0); }
