@@ -123,7 +123,7 @@ function layoutLevel(keep){
 function alive(){ return inv.filter(i=>i.alive); }
 function invPos(i){ return {x:form.x+i.c*form.cw+Math.floor((form.cw-(i.type==='a1'?10:8))/2), y:form.y+i.r*form.ch, w:i.type==='a1'?10:8, h:8}; }
 function newGame(m){ mode=m||mode; level=1; score=0; lives=3; state='play'; layoutLevel(false); hintT=4000; ship.dead=0;
-  if(mode==='arena'){ online.rank=0; online.total=0; inv=inv.filter(i=>i.r<3); arena={kills:0,nextRow:9000,squadT:14000,combo:0,comboT:0,start:performance.now(),sent:false}; squads=[]; waveT=1200; }
+  if(mode==='arena'){ online.rank=0; online.total=0; online.err=''; inv=inv.filter(i=>i.r<3); arena={kills:0,nextRow:9000,squadT:14000,combo:0,comboT:0,start:performance.now(),sent:false}; squads=[]; waveT=1200; }
 }
 function startArena(){ if(!store.name){ document.getElementById('nameBox').hidden=false; setTimeout(()=>document.getElementById('nameIn').focus(),50); return; } newGame('arena'); }
 document.getElementById('nameForm').addEventListener('submit',e=>{ e.preventDefault(); const n=cleanName(document.getElementById('nameIn').value); if(!n){ document.getElementById('nameIn').value=''; document.getElementById('nameIn').placeholder='PICK ANOTHER NAME'; return; } store.name=n; save(); document.getElementById('nameBox').hidden=true; newGame('arena'); });
@@ -139,10 +139,10 @@ async function getApi(){ if(API) return API; try{ const d=await (await fetch(CFG
 async function sig(e){ const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(`invasie|${e.name}|${e.score}|${e.dur}|${e.ts}|vwab`)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('').slice(0,16); }
 let flushing=false;
 async function flushScores(){ if(flushing||!outbox.length) return; flushing=true;
-  try{ const api=await getApi(); if(!api) return;
+  try{ const api=await getApi(); if(!api){ online.err='no leaderboard connection'; return; } online.err='';
     while(outbox.length){ const e=outbox[0]; const r=await fetch(api+'/score',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({game:'invasie',name:e.name,score:e.score,dur:e.dur,ts:e.ts,sig:await sig(e)})});
       if(r.status>=500||r.status===429) break; // later opnieuw
-      const d=await r.json().catch(()=>({})); if(r.ok && d.rank && e.score===score && state==='over'){ online.rank=d.rank; online.total=d.total; }
+      const d=await r.json().catch(()=>({})); if(r.ok && d.rank && e.score===score && state==='over'){ online.rank=d.rank; online.total=d.total; } if(!r.ok){ online.err=(d.error||('HTTP '+r.status)); }
       outbox.shift(); store.outbox=outbox; save(); }
     await fetchTop();
   }catch(_){ } finally{ flushing=false; } }
@@ -310,7 +310,7 @@ function draw(t){
   if(state==='pause'){ veil(); text('PAUSED',W/2,H*0.42,3,P.yel,'c'); text('TAP TO CONTINUE',W/2,H*0.42+26,1,P.white,'c'); }
   if(state==='over'){ veil();
     if(mode==='arena'){ text('GAME OVER',W/2,H*0.14,3,P.red,'c'); text(store.name+'  ·  '+score,W/2,H*0.14+26,2,P.yel,'c');
-      const rk=online.rank?('YOU ARE #'+online.rank+' OF '+online.total+' ONLINE'):(outbox.length?'SENDING SCORE…':(lastRank?('LOCAL #'+lastRank+' OF '+board.length):''));
+      const rk=online.rank?('YOU ARE #'+online.rank+' OF '+online.total+' ONLINE'):(online.err?('NOT SUBMITTED: '+online.err):(outbox.length?'SENDING SCORE…':(lastRank?('LOCAL #'+lastRank+' OF '+board.length):'')));
       text(rk,W/2,H*0.14+44,1,P.cyan,'c'); const lst=online.top||board.slice(0,10);
       text(online.top?'TOP 10 ONLINE':'TOP 10 ON THIS DEVICE',W/2,H*0.14+62,1,P.white,'c'); lst.slice(0,10).forEach((e,i)=>{ const y=H*0.14+74+i*10; const me=e.name===store.name&&e.score===score; text((i+1)+'. '+e.name,W/2-40,y,1,me?P.yel:P.white,'l',0); text(e.score,W/2+40,y,1,me?P.yel:P.cyan,'r',0); });
       text('TAP TO PLAY AGAIN',W/2,H*0.14+74+105,1,P.white,'c'); }
