@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="nl">
+<html lang="en"><!-- VWAB Tournament edition -->
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
@@ -36,7 +36,7 @@ canvas{display:block}
 </head>
 <body>
 <div id="wrap"><canvas id="c"></canvas><canvas id="t"></canvas></div>
-<div id="nameBox" hidden><form class="box" id="nameForm"><h2>VWAB TOURNAMENT</h2><p>Vul je bijnaam in voor het scorebord.<br>Max. 12 tekens.</p><input id="nameIn" maxlength="12" autocomplete="off" placeholder="BIJNAAM" required><button type="submit">Speel</button><small>Alleen je bijnaam wordt opgeslagen.</small></form></div>
+<div id="nameBox" hidden><form class="box" id="nameForm"><h2>VWAB TOURNAMENT</h2><p>Enter your nickname for the leaderboard.<br>Max. 12 characters.</p><input id="nameIn" maxlength="12" autocomplete="off" placeholder="NICKNAME" required><button type="submit">Play</button><small>Only your nickname is stored.</small></form></div>
 <script>
 (() => {
 'use strict';
@@ -126,7 +126,7 @@ function newGame(m){ mode=m||mode; level=1; score=0; lives=3; state='play'; layo
   if(mode==='arena'){ online.rank=0; online.total=0; inv=inv.filter(i=>i.r<3); arena={kills:0,nextRow:9000,squadT:14000,combo:0,comboT:0,start:performance.now(),sent:false}; squads=[]; waveT=1200; }
 }
 function startArena(){ if(!store.name){ document.getElementById('nameBox').hidden=false; setTimeout(()=>document.getElementById('nameIn').focus(),50); return; } newGame('arena'); }
-document.getElementById('nameForm').addEventListener('submit',e=>{ e.preventDefault(); const n=cleanName(document.getElementById('nameIn').value); if(!n){ document.getElementById('nameIn').value=''; document.getElementById('nameIn').placeholder='KIES EEN ANDERE NAAM'; return; } store.name=n; save(); document.getElementById('nameBox').hidden=true; newGame('arena'); });
+document.getElementById('nameForm').addEventListener('submit',e=>{ e.preventDefault(); const n=cleanName(document.getElementById('nameIn').value); if(!n){ document.getElementById('nameIn').value=''; document.getElementById('nameIn').placeholder='PICK ANOTHER NAME'; return; } store.name=n; save(); document.getElementById('nameBox').hidden=true; newGame('arena'); });
 function arenaAddRow(){ const live=alive(); const minR=live.length?Math.min(...live.map(i=>i.r)):0; if(form.y-form.ch<playArea.top+2) return false;
   for(const i of inv) i.r++; form.y-=form.ch; inv=inv.filter(i=>i.alive);
   const kinds=['a3','a2','a1']; const ty=kinds[(Math.random()*3)|0]; for(let c=0;c<form.cols;c++) inv.push({c,r:0,type:ty,alive:true}); return true; }
@@ -203,12 +203,12 @@ function update(dt){
     arena.nextRow-=dt; const need = n<=form.cols*2;
     if(arena.nextRow<=0 || need || n===0){ if(arenaAddRow()||n===0){ if(n===0){ form.y=playArea.top+10; arenaAddRow(); arenaAddRow(); } arena.nextRow=Math.max(3500, 9000-level*500); } else arena.nextRow=1500; n=alive().length; }
     level=1+Math.floor(arena.kills/25);
-    arena.squadT-=dt; if(arena.squadT<=0){ arena.squadT=12000+Math.random()*8000; const dir=Math.random()<0.5?1:-1; squads.push({x:dir>0?M:W-M-40,y:playArea.top+2,vx:dir*0.05,vy:0.035,inv:[0,1,2,3].map(k=>({k,alive:true})),f:0}); msg('GOLF!',W/2,H*0.3,P.orange); }
+    arena.squadT-=dt; if(arena.squadT<=0){ arena.squadT=12000+Math.random()*8000; const dir=Math.random()<0.5?1:-1; squads.push({x:dir>0?M:W-M-40,y:playArea.top+2,vx:dir*0.05,vy:0.035,inv:[0,1,2,3].map(k=>({k,alive:true})),f:0}); msg('WAVE!',W/2,H*0.3,P.orange); }
     for(const sq of squads){ sq.x+=sq.vx*dt; sq.y+=sq.vy*dt; sq.f+=dt; if(sq.x<M||sq.x>W-M-40) sq.vx=-sq.vx;
       for(const k of sq.inv){ if(!k.alive) continue; const ix=sq.x+k.k*10, iy=sq.y; if(ix<ship.x+ship.w&&ix+8>ship.x&&iy<ship.y+ship.h&&iy+8>ship.y&&ship.dead<=0) killShip(); } }
     squads=squads.filter(sq=>sq.y<playArea.bottom && sq.inv.some(k=>k.alive));
     total=form.cols*5;
-  } else if(n===0){ score+=100*level; msg('LEVEL '+level+' KLAAR',W/2,H*0.4,P.yel); nextLevel(); return; }
+  } else if(n===0){ score+=100*level; msg('LEVEL '+level+' CLEAR',W/2,H*0.4,P.yel); nextLevel(); return; }
   const interval=Math.max(mode==='arena'?90:60, (900-Math.min(500,(level-1)*90)) * (n/total)*(n/total)*0.9 + 60);
   form.timer+=dt;
   if(form.timer>=interval){ form.timer=0; form.frame^=1;
@@ -280,11 +280,11 @@ function titleScreen(t){
   const fy=H*0.80; for(let c=0;c<6;c++){ const ty=['a3','a2','a1'][c%3]; drawInvader(ty,W/2-36+c*12+(ty==='a1'?-1:0),fy,(t/500|0)&1,colFor(ty)); }
   ctx.drawImage(shipSprite(),W/2-4|0,fy+16|0);
   ctx.strokeStyle=P.yel; ctx.lineWidth=1; ctx.strokeRect(M,H*0.40,W-2*M,H*0.12); ctx.strokeStyle=P.cyan; ctx.strokeRect(M,H*0.58,W-2*M,H*0.10);
-  text('VWAB TOURNAMENT',W/2,H*0.40+4,2,P.yel,'c'); text('DOE MEE · ONLINE SCOREBORD',W/2,H*0.40+22,1,'rgba(255,255,255,.75)','c',0); const tp=(online.top&&online.top[0])||board[0]; if(tp) text('TOP: '+tp.name+' '+tp.score,W/2,H*0.40+31,1,P.yel,'c',0);
-  text('TRAINING',W/2,H*0.58+4,2,P.cyan,'c'); text('OEFENEN · TELT NIET MEE · BEST '+best,W/2,H*0.58+22,1,'rgba(255,255,255,.75)','c',0);
-  text('SLEEP = BEWEGEN · TIK/VASTHOUDEN = VUREN',W/2,H*0.74+8,1,'rgba(255,255,255,.7)','c',0);
-  if(store.name) text('SPELER: '+store.name,W/2,H*0.74+18,1,P.green,'c',0);
-  text('LEDJOCKEY',W/2,H-12,1,'rgba(255,255,255,.4)','c',0);
+  text('VWAB TOURNAMENT',W/2,H*0.40+4,2,P.yel,'c'); text('JOIN · ONLINE LEADERBOARD',W/2,H*0.40+22,1,'rgba(255,255,255,.75)','c',0); const tp=(online.top&&online.top[0])||board[0]; if(tp) text('TOP: '+tp.name+' '+tp.score,W/2,H*0.40+31,1,P.yel,'c',0);
+  text('TRAINING',W/2,H*0.58+4,2,P.cyan,'c'); text('PRACTICE · DOES NOT COUNT · BEST '+best,W/2,H*0.58+22,1,'rgba(255,255,255,.75)','c',0);
+  text('DRAG = MOVE · TAP / HOLD = FIRE',W/2,H*0.74+8,1,'rgba(255,255,255,.7)','c',0);
+  if(store.name) text('PLAYER: '+store.name,W/2,H*0.74+18,1,P.green,'c',0);
+  text('POWERED BY LEDJOCKEY',W/2,H-12,1,'rgba(255,255,255,.5)','c',0);
 }
 function draw(t){
   tctx.clearRect(0,0,tv.width,tv.height);
@@ -305,16 +305,16 @@ function draw(t){
   band(t); hud();
   for(const m of msgs) text(m.s,m.x,m.y-(900-m.l)*0.01,2,m.col,'c');
   if(waveT>0) text(mode==='arena'?'TOURNAMENT':'LEVEL '+level,W/2,H*0.42,3,P.yel,'c');
-  if(hintT>0 && level===1){ text('SLEEP = BEWEGEN · TIK = VUREN',W/2,playArea.bottom-44,1,'rgba(255,255,255,.75)','c',0); }
+  if(hintT>0 && level===1){ text('DRAG = MOVE · TAP = FIRE',W/2,playArea.bottom-44,1,'rgba(255,255,255,.75)','c',0); }
   if(flash>0){ ctx.fillStyle=`rgba(255,60,60,${flash/900})`; ctx.fillRect(0,0,W,H); }
-  if(state==='pause'){ veil(); text('PAUZE',W/2,H*0.42,3,P.yel,'c'); text('TIK OM VERDER TE GAAN',W/2,H*0.42+26,1,P.white,'c'); }
+  if(state==='pause'){ veil(); text('PAUSED',W/2,H*0.42,3,P.yel,'c'); text('TAP TO CONTINUE',W/2,H*0.42+26,1,P.white,'c'); }
   if(state==='over'){ veil();
     if(mode==='arena'){ text('GAME OVER',W/2,H*0.14,3,P.red,'c'); text(store.name+'  ·  '+score,W/2,H*0.14+26,2,P.yel,'c');
-      const rk=online.rank?('JE STAAT #'+online.rank+' VAN '+online.total+' ONLINE'):(outbox.length?'SCORE WORDT VERZONDEN…':(lastRank?('LOKAAL #'+lastRank+' VAN '+board.length):''));
+      const rk=online.rank?('YOU ARE #'+online.rank+' OF '+online.total+' ONLINE'):(outbox.length?'SENDING SCORE…':(lastRank?('LOCAL #'+lastRank+' OF '+board.length):''));
       text(rk,W/2,H*0.14+44,1,P.cyan,'c'); const lst=online.top||board.slice(0,10);
-      text(online.top?'TOP 10 ONLINE':'TOP 10 OP DIT TOESTEL',W/2,H*0.14+62,1,P.white,'c'); lst.slice(0,10).forEach((e,i)=>{ const y=H*0.14+74+i*10; const me=e.name===store.name&&e.score===score; text((i+1)+'. '+e.name,W/2-40,y,1,me?P.yel:P.white,'l',0); text(e.score,W/2+40,y,1,me?P.yel:P.cyan,'r',0); });
-      text('TIK VOOR NIEUW POTJE',W/2,H*0.14+74+105,1,P.white,'c'); }
-    else { text('GAME OVER',W/2,H*0.36,3,P.red,'c'); text('SCORE '+score,W/2,H*0.36+28,2,P.white,'c'); text('LEVEL '+level,W/2,H*0.36+46,1,P.cyan,'c'); text(score>=best&&score>0?'NIEUW RECORD!':'BEST '+best,W/2,H*0.36+58,1,P.yel,'c'); text('TIK VOOR NIEUW SPEL',W/2,H*0.36+76,1,P.white,'c'); } }
+      text(online.top?'TOP 10 ONLINE':'TOP 10 ON THIS DEVICE',W/2,H*0.14+62,1,P.white,'c'); lst.slice(0,10).forEach((e,i)=>{ const y=H*0.14+74+i*10; const me=e.name===store.name&&e.score===score; text((i+1)+'. '+e.name,W/2-40,y,1,me?P.yel:P.white,'l',0); text(e.score,W/2+40,y,1,me?P.yel:P.cyan,'r',0); });
+      text('TAP TO PLAY AGAIN',W/2,H*0.14+74+105,1,P.white,'c'); }
+    else { text('GAME OVER',W/2,H*0.36,3,P.red,'c'); text('SCORE '+score,W/2,H*0.36+28,2,P.white,'c'); text('LEVEL '+level,W/2,H*0.36+46,1,P.cyan,'c'); text(score>=best&&score>0?'NEW RECORD!':'BEST '+best,W/2,H*0.36+58,1,P.yel,'c'); text('TAP FOR NEW GAME',W/2,H*0.36+76,1,P.white,'c'); } }
 }
 function frame(t){ const dt=Math.min(50,t-t_last||16); t_last=t; update(dt); draw(t); requestAnimationFrame(frame); }
 fit(); layoutLevel(false); requestAnimationFrame(frame);
