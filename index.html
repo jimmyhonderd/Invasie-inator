@@ -208,7 +208,9 @@ function update(dt){
   if(mode==='arena'){
     if(arena.comboT>0){ arena.comboT-=dt; if(arena.comboT<=0) arena.combo=0; }
     arena.nextRow-=dt; const need = n<=form.cols*2;
-    if(arena.nextRow<=0 || need || n===0){ if(arenaAddRow()||n===0){ if(n===0){ form.y=playArea.top+10; arenaAddRow(); arenaAddRow(); } arena.nextRow=Math.max(3500, 9000-level*500); } else arena.nextRow=1500; n=alive().length; }
+    if(n===0){ inv=[]; form.y=playArea.top+10; form.x=Math.round((W-form.cols*form.cw)/2); form.dir=1; const kinds=['a3','a2','a1'];
+      for(let r=0;r<3;r++) for(let c=0;c<form.cols;c++) inv.push({c,r,type:kinds[r],alive:true}); score+=250; msg('+250 CLEAR!',W/2,H*0.3,P.yel); arena.nextRow=Math.max(3500, 9000-level*500); n=alive().length; }
+    else if(arena.nextRow<=0 || need){ if(arenaAddRow()) arena.nextRow=Math.max(3500, 9000-level*500); else arena.nextRow=1500; n=alive().length; }
     level=1+Math.floor(arena.kills/25);
     arena.squadT-=dt; if(arena.squadT<=0){ arena.squadT=12000+Math.random()*8000; const dir=Math.random()<0.5?1:-1; squads.push({x:dir>0?M:W-M-40,y:playArea.top+2,vx:dir*0.05,vy:0.035,inv:[0,1,2,3].map(k=>({k,alive:true})),f:0}); msg('WAVE!',W/2,H*0.3,P.orange); }
     for(const sq of squads){ sq.x+=sq.vx*dt; sq.y+=sq.vy*dt; sq.f+=dt; if(sq.x<M||sq.x>W-M-40) sq.vx=-sq.vx;
@@ -219,7 +221,8 @@ function update(dt){
   const interval=Math.max(mode==='arena'?90:60, (900-Math.min(500,(level-1)*90)) * (n/total)*(n/total)*0.9 + 60);
   form.timer+=dt;
   if(form.timer>=interval){ form.timer=0; form.frame^=1;
-    const live=alive(); const minC=Math.min(...live.map(i=>i.c)), maxC=Math.max(...live.map(i=>i.c));
+    const live=alive(); if(!live.length){ form.timer=0; } else {
+    const minC=Math.min(...live.map(i=>i.c)), maxC=Math.max(...live.map(i=>i.c));
     const left=form.x+minC*form.cw, right=form.x+(maxC+1)*form.cw;
     const stepX=portrait?3:4;
     if((form.dir>0 && right+stepX>W-M)||(form.dir<0 && left-stepX<M)){ form.dir*=-1; form.y+=portrait?6:5; } else form.x+=form.dir*stepX;
@@ -230,6 +233,7 @@ function update(dt){
     // reached bunkers / ground?
     const maxR=Math.max(...live.map(i=>i.r)); if(form.y+(maxR+1)*form.ch>=ship.y-2){ lives=-1; killShip(); }
     for(const i of live){ const p=invPos(i); hitBunkerArea(p); }
+    }
   }
   // bombs
   for(const b of bombs){ b.y+=(0.09+level*0.006+(b.z?0.05:0))*dt; }
@@ -329,8 +333,9 @@ function draw(t){
       text('TAP TO PLAY AGAIN',W/2,H*0.14+78+105,1,P.white,'c'); }
     else { text('GAME OVER',W/2,H*0.36,3,P.red,'c'); text('SCORE '+score,W/2,H*0.36+28,2,P.white,'c'); text('LEVEL '+level,W/2,H*0.36+46,1,P.cyan,'c'); text(score>=best&&score>0?'NEW RECORD!':'BEST '+best,W/2,H*0.36+58,1,P.yel,'c'); text('TAP FOR NEW GAME',W/2,H*0.36+76,1,P.white,'c'); } }
 }
-function frame(t){ const dt=Math.min(50,t-t_last||16); t_last=t; update(dt); draw(t); requestAnimationFrame(frame); }
+function frame(t){ const dt=Math.min(50,t-t_last||16); t_last=t; try{ update(dt); }catch(e){ console.error(e); } try{ draw(t); }catch(e){ console.error(e); } requestAnimationFrame(frame); }
 fit(); layoutLevel(false); requestAnimationFrame(frame);
+if(location.search.includes('debug')) window.__dbg={killAll:()=>inv.forEach(i=>i.alive=false),count:()=>alive().length,state:()=>state};
 if('serviceWorker' in navigator) addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 })();
 </script>
