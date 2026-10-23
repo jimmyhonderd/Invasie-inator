@@ -109,16 +109,27 @@ let form={x:0,y:0,dir:1,step:0,timer:0,frame:0,cols:0,rows:0,cw:0,ch:0};
 let playArea={top:0,bottom:0}, M=16, BAND=30;
 function layoutLevel(keep){
   const hudH=portrait?24:22; BAND=portrait?34:22; playArea={top:hudH,bottom:H-BAND-4};
-  ship.y=playArea.bottom-ship.h; if(!keep||ship.x===0) ship.x=W/2-ship.w/2;
-  const cols=Math.max(6,Math.min(portrait?9:16,Math.floor((W-2*M-4)/12))), rows=5; form.cols=cols; form.rows=rows; M=portrait?16:Math.max(16,Math.round(W*0.12)); form.cw=12; form.ch=11;
-  if(!keep){ form.x=Math.round((W-cols*form.cw)/2); form.y=playArea.top+10+Math.min(24,(level-1)*4); form.dir=1; form.timer=0; form.frame=0;
-    inv=[]; for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) inv.push({c,r,type:r===0?'a3':r<3?'a2':'a1',alive:true});
-    bunkers=[]; const nb=portrait?3:4, bw=22, by=playArea.bottom-ship.h-22, gap=((W-2*M)-nb*bw)/(nb+1);
-    for(let i=0;i<nb;i++){ const bx=Math.round(M+gap+i*(bw+gap)); const cells=[];
-      for(let y=0;y<14;y++) for(let x=0;x<bw;x++){ const arch = y>=8 && x>=7 && x<bw-7; const corner=(y<3&&(x<3-y||x>=bw-3+y)); if(!arch&&!corner) cells.push({x:bx+x,y:by+y,on:true}); }
-      bunkers.push({x:bx,y:by,w:bw,h:14,cells,label:i===Math.floor(nb/2)}); }
-    shots=[]; bombs=[]; parts=[]; ufo=null; ufoT=8000+Math.random()*8000; }
-  else { form.x=Math.min(form.x,W-cols*form.cw); }
+  M=portrait?16:Math.max(16,Math.round(W*0.12));
+  ship.y=playArea.bottom-ship.h; if(!keep||ship.x===0) ship.x=W/2-ship.w/2; ship.x=Math.max(M,Math.min(W-M-ship.w,ship.x));
+  if(keep && inv.length){
+    // orientation change mid-game: keep the formation, refit it to the new screen
+    const cols=form.cols; form.cw=Math.max(9,Math.min(12,Math.floor((W-2*M-4)/cols)));
+    form.x=Math.round((W-cols*form.cw)/2);
+    const live=alive(); const maxR=live.length?Math.max(...live.map(i=>i.r)):form.rows-1;
+    const maxY=ship.y-(maxR+1)*form.ch-28; form.y=Math.max(playArea.top+6,Math.min(maxY,form.y));
+    const nb=bunkers.length, bw=22, by=playArea.bottom-ship.h-22, gap=((W-2*M)-nb*bw)/(nb+1);
+    bunkers.forEach((b,i)=>{ const bx=Math.round(M+gap+i*(bw+gap)); const dx=bx-b.x, dy=by-b.y; b.x=bx; b.y=by; for(const c of b.cells){ c.x+=dx; c.y+=dy; } });
+    bombs=[]; squads=[]; shots=[]; if(ufo) ufo=null;
+    return;
+  }
+  const cols=Math.max(6,Math.min(portrait?9:16,Math.floor((W-2*M-4)/12))), rows=5; form.cols=cols; form.rows=rows; form.cw=12; form.ch=11;
+  form.x=Math.round((W-cols*form.cw)/2); form.y=playArea.top+10+Math.min(24,(level-1)*4); form.dir=1; form.timer=0; form.frame=0;
+  inv=[]; for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) inv.push({c,r,type:r===0?'a3':r<3?'a2':'a1',alive:true});
+  bunkers=[]; const nb=portrait?3:4, bw=22, by=playArea.bottom-ship.h-22, gap=((W-2*M)-nb*bw)/(nb+1);
+  for(let i=0;i<nb;i++){ const bx=Math.round(M+gap+i*(bw+gap)); const cells=[];
+    for(let y=0;y<14;y++) for(let x=0;x<bw;x++){ const arch = y>=8 && x>=7 && x<bw-7; const corner=(y<3&&(x<3-y||x>=bw-3+y)); if(!arch&&!corner) cells.push({x:bx+x,y:by+y,on:true}); }
+    bunkers.push({x:bx,y:by,w:bw,h:14,cells,label:i===Math.floor(nb/2)}); }
+  shots=[]; bombs=[]; parts=[]; ufo=null; ufoT=8000+Math.random()*8000;
 }
 function alive(){ return inv.filter(i=>i.alive); }
 function invPos(i){ return {x:form.x+i.c*form.cw+Math.floor((form.cw-(i.type==='a1'?10:8))/2), y:form.y+i.r*form.ch, w:i.type==='a1'?10:8, h:8}; }
