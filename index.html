@@ -36,7 +36,7 @@ canvas{display:block}
 </head>
 <body>
 <div id="wrap"><canvas id="c"></canvas><canvas id="t"></canvas></div>
-<div id="nameBox" hidden><form class="box" id="nameForm"><h2>VWAB TOURNAMENT</h2><p>Enter your nickname for the leaderboard.<br>Max. 12 characters.</p><input id="nameIn" maxlength="12" autocomplete="off" placeholder="NICKNAME" required><button type="submit">Play</button><small>Only your nickname is stored.</small></form></div>
+<div id="nameBox" hidden><form class="box" id="nameForm"><h2>VWAB TOURNAMENT</h2><p>Enter your nickname for the leaderboard.<br>Max. 12 characters.</p><input id="nameIn" maxlength="12" autocomplete="off" placeholder="NICKNAME" required><button type="submit">Play</button><small>Only your nickname and a random device key (to claim your score) are stored. No cookies, no tracking.</small></form></div>
 <script>
 (() => {
 'use strict';
@@ -123,7 +123,7 @@ function layoutLevel(keep){
 function alive(){ return inv.filter(i=>i.alive); }
 function invPos(i){ return {x:form.x+i.c*form.cw+Math.floor((form.cw-(i.type==='a1'?10:8))/2), y:form.y+i.r*form.ch, w:i.type==='a1'?10:8, h:8}; }
 function newGame(m){ mode=m||mode; level=1; score=0; lives=3; state='play'; layoutLevel(false); hintT=4000; ship.dead=0;
-  if(mode==='arena'){ online.rank=0; online.total=0; online.err=''; inv=inv.filter(i=>i.r<3); arena={kills:0,nextRow:9000,squadT:14000,combo:0,comboT:0,start:performance.now(),sent:false}; squads=[]; waveT=1200; }
+  if(mode==='arena'){ online.rank=0; online.total=0; online.err=''; online.claim=''; inv=inv.filter(i=>i.r<3); arena={kills:0,nextRow:9000,squadT:14000,combo:0,comboT:0,start:performance.now(),sent:false}; squads=[]; waveT=1200; }
 }
 function startArena(){ if(!store.name){ document.getElementById('nameBox').hidden=false; setTimeout(()=>document.getElementById('nameIn').focus(),50); return; } newGame('arena'); }
 document.getElementById('nameForm').addEventListener('submit',e=>{ e.preventDefault(); const n=cleanName(document.getElementById('nameIn').value); if(!n){ document.getElementById('nameIn').value=''; document.getElementById('nameIn').placeholder='PICK ANOTHER NAME'; return; } store.name=n; save(); document.getElementById('nameBox').hidden=true; newGame('arena'); });
@@ -133,6 +133,7 @@ function arenaAddRow(){ const live=alive(); const minR=live.length?Math.min(...l
 function arenaGameOver(){ if(arena.sent) return; arena.sent=true; const entry={name:store.name||'ANONIEM',score,ts:Date.now(),dur:Math.round((performance.now()-arena.start)/1000)};
   board.push(entry); board.sort((a,b)=>b.score-a.score); board=board.slice(0,100); store.arena=board; save(); lastRank=board.findIndex(e=>e===entry)+1; queueScore(entry); }
 let outbox=store.outbox||[];
+if(!store.dev){ const a=new Uint8Array(16); crypto.getRandomValues(a); store.dev=[...a].map(x=>x.toString(16).padStart(2,'0')).join(''); save(); }
 function queueScore(e){ outbox.push(e); store.outbox=outbox; save(); flushScores(); }
 const CFG_URL='https://jimmyhonderd.github.io/Vwab-arena/config.json'; let API=store.api||''; let online={top:null,rank:0,total:0,t:0};
 async function getApi(){ if(API) return API; try{ const d=await (await fetch(CFG_URL,{cache:'no-store'})).json(); if(d.api){ API=d.api; store.api=API; save(); } }catch(_){} return API; }
@@ -140,9 +141,9 @@ async function sig(e){ const b=await crypto.subtle.digest('SHA-256',new TextEnco
 let flushing=false;
 async function flushScores(){ if(flushing||!outbox.length) return; flushing=true;
   try{ const api=await getApi(); if(!api){ online.err='no leaderboard connection'; return; } online.err='';
-    while(outbox.length){ const e=outbox[0]; const r=await fetch(api+'/score',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({game:'invasie',name:e.name,score:e.score,dur:e.dur,ts:e.ts,sig:await sig(e)})});
+    while(outbox.length){ const e=outbox[0]; const r=await fetch(api+'/score',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({game:'invasie',name:e.name,score:e.score,dur:e.dur,ts:e.ts,sig:await sig(e),dev:store.dev})});
       if(r.status>=500||r.status===429) break; // later opnieuw
-      const d=await r.json().catch(()=>({})); if(r.ok && d.rank && e.score===score && state==='over'){ online.rank=d.rank; online.total=d.total; } if(!r.ok){ online.err=(d.error||('HTTP '+r.status)); }
+      const d=await r.json().catch(()=>({})); if(r.ok && d.claim){ const be=board.find(x=>x.ts===e.ts&&x.score===e.score); if(be){ be.claim=d.claim; be.id=d.id; store.arena=board; save(); } if(e.score===score && state==='over'){ online.claim=d.claim; } } if(r.ok && d.rank && e.score===score && state==='over'){ online.rank=d.rank; online.total=d.total; } if(!r.ok){ online.err=(d.error||('HTTP '+r.status)); }
       outbox.shift(); store.outbox=outbox; save(); }
     await fetchTop();
   }catch(_){ } finally{ flushing=false; } }
@@ -157,7 +158,7 @@ function hitBunker(x,y,r){ for(const b of bunkers){ if(x<b.x-2||x>b.x+b.w+2||y<b
   return false; }
 
 /* ---------- input ---------- */
-let pointer=null, keys={}, fireHeld=false, btnA={x:0,y:0,w:0,h:0}, btnB={x:0,y:0,w:0,h:0};
+let pointer=null, keys={}, fireHeld=false, btnA={x:0,y:0,w:0,h:0}, btnB={x:0,y:0,w:0,h:0}, btnC={x:0,y:0,w:0,h:0};
 addEventListener('contextmenu',e=>e.preventDefault());
 cv.parentElement.addEventListener('touchstart',e=>{ if(e.target.tagName!=='INPUT') e.preventDefault(); },{passive:false});
 cv.parentElement.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
@@ -165,7 +166,8 @@ addEventListener('gesturestart',e=>e.preventDefault());
 addEventListener('dblclick',e=>e.preventDefault());
 function fpos(e){ const r=cv.getBoundingClientRect(); return {x:(e.clientX-r.left)/scale,y:(e.clientY-r.top)/scale}; }
 cv.parentElement.addEventListener('pointerdown',e=>{ const p=fpos(e); try{cv.setPointerCapture(e.pointerId)}catch(_){}
-  if(state==='title'){ const inA=p.x>=btnA.x&&p.x<=btnA.x+btnA.w&&p.y>=btnA.y&&p.y<=btnA.y+btnA.h, inB=p.x>=btnB.x&&p.x<=btnB.x+btnB.w&&p.y>=btnB.y&&p.y<=btnB.y+btnB.h; if(inA) startArena(); else if(inB) newGame('classic'); return; }
+  if(state==='title'){ const inA=p.x>=btnA.x&&p.x<=btnA.x+btnA.w&&p.y>=btnA.y&&p.y<=btnA.y+btnA.h, inB=p.x>=btnB.x&&p.x<=btnB.x+btnB.w&&p.y>=btnB.y&&p.y<=btnB.y+btnB.h; const inC=p.x>=btnC.x-10&&p.x<=btnC.x+btnC.w+10&&p.y>=btnC.y-4&&p.y<=btnC.y+btnC.h+4; if(inA) startArena(); else if(inB) newGame('classic'); else if(inC) state='mine'; return; }
+  if(state==='mine'){ state='title'; return; }
   if(state==='over'){ if(mode==='arena') startArena(); else newGame('classic'); return; } if(state==='pause'){ state='play'; return; }
   if(p.x>W-18&&p.y<18){ state='pause'; return; }
   pointer={x:p.x,offset:ship.x+ship.w/2-p.x,t0:performance.now(),moved:false}; fireHeld=true; fire(); });
@@ -287,7 +289,7 @@ function titleScreen(t){
   text('VWAB TOURNAMENT',btnA.x+btnA.w/2,btnA.y+3,2,P.yel,'c'); text('JOIN · ONLINE LEADERBOARD',btnA.x+btnA.w/2,btnA.y+19,1,'rgba(255,255,255,.75)','c',0);
   const tp=(online.top&&online.top[0])||board[0]; if(tp) text('TOP: '+tp.name+' '+tp.score,btnA.x+btnA.w/2,btnA.y+27,1,P.yel,'c',0);
   text('TRAINING',btnB.x+btnB.w/2,btnB.y+3,2,P.cyan,'c'); text('PRACTICE · DOES NOT COUNT · BEST '+best,btnB.x+btnB.w/2,btnB.y+19,1,'rgba(255,255,255,.75)','c',0);
-  y=Math.max(btnA.y,btnB.y)+bh+10;
+  y=Math.max(btnA.y,btnB.y)+bh+6; btnC={x:W/2-40,y,w:80,h:12}; ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.strokeRect(btnC.x,btnC.y,btnC.w,btnC.h); text('MY SCORES',W/2,y+2,1,P.white,'c',0); y+=18;
   text('DRAG = MOVE · TAP / HOLD = FIRE',W/2,y,1,'rgba(255,255,255,.7)','c',0); y+=9;
   if(store.name) { text('PLAYER: '+store.name,W/2,y,1,P.green,'c',0); y+=9; }
   if(H-y>34){ for(let c=0;c<6;c++){ const ty=['a3','a2','a1'][c%3]; drawInvader(ty,W/2-36+c*12+(ty==='a1'?-1:0),y+4,(t/500|0)&1,colFor(ty)); } ctx.drawImage(shipSprite(),W/2-4|0,y+20|0); }
@@ -297,6 +299,10 @@ function draw(t){
   tctx.clearRect(0,0,tv.width,tv.height);
   ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H); drawStars(t);
   if(state==='title'){ titleScreen(t); return; }
+  if(state==='mine'){ text('MY SCORES',W/2,10,3,P.yel,'c'); text(store.name?('PLAYER: '+store.name):'NO NAME YET',W/2,36,1,P.green,'c');
+    const mine=board.filter(e=>e.name===store.name).slice(0,12); if(!mine.length) text('NO TOURNAMENT SCORES YET',W/2,60,1,P.white,'c');
+    mine.forEach((e,i)=>{ const y=52+i*11; text(new Date(e.ts).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),W/2-60,y,1,'rgba(255,255,255,.6)','l',0); text(e.score,W/2,y,1,P.yel,'c',0); text(e.claim?('CODE '+e.claim):'(not sent yet)',W/2+60,y,1,e.claim?P.green:'rgba(255,255,255,.5)','r',0); });
+    text('SHOW THIS SCREEN TO CLAIM YOUR PRIZE',W/2,H-30,1,P.cyan,'c'); text('TAP TO GO BACK',W/2,H-18,1,P.white,'c'); return; }
   ctx.save(); if(shake>0) ctx.translate((Math.random()*shake-shake/2)|0,(Math.random()*shake-shake/2)|0);
   sideColumns(t);
   for(const i of inv){ if(!i.alive) continue; const p=invPos(i); drawInvader(i.type,p.x,p.y,form.frame,colFor(i.type)); }
@@ -318,9 +324,9 @@ function draw(t){
   if(state==='over'){ veil();
     if(mode==='arena'){ text('GAME OVER',W/2,H*0.14,3,P.red,'c'); text(store.name+'  ·  '+score,W/2,H*0.14+26,2,P.yel,'c');
       const rk=online.rank?('YOU ARE #'+online.rank+' OF '+online.total+' ONLINE'):(online.err?('NOT SUBMITTED: '+online.err):(outbox.length?'SENDING SCORE…':(lastRank?('LOCAL #'+lastRank+' OF '+board.length):'')));
-      text(rk,W/2,H*0.14+44,1,P.cyan,'c'); const lst=online.top||board.slice(0,10);
-      text(online.top?'TOP 10 ONLINE':'TOP 10 ON THIS DEVICE',W/2,H*0.14+62,1,P.white,'c'); lst.slice(0,10).forEach((e,i)=>{ const y=H*0.14+74+i*10; const me=e.name===store.name&&e.score===score; text((i+1)+'. '+e.name,W/2-40,y,1,me?P.yel:P.white,'l',0); text(e.score,W/2+40,y,1,me?P.yel:P.cyan,'r',0); });
-      text('TAP TO PLAY AGAIN',W/2,H*0.14+74+105,1,P.white,'c'); }
+      text(rk,W/2,H*0.14+44,1,P.cyan,'c'); if(online.claim) text('CLAIM CODE  '+online.claim,W/2,H*0.14+53,1,P.green,'c'); const lst=online.top||board.slice(0,10);
+      text(online.top?'TOP 10 ONLINE':'TOP 10 ON THIS DEVICE',W/2,H*0.14+66,1,P.white,'c'); lst.slice(0,10).forEach((e,i)=>{ const y=H*0.14+78+i*10; const me=e.name===store.name&&e.score===score; text((i+1)+'. '+e.name,W/2-40,y,1,me?P.yel:P.white,'l',0); text(e.score,W/2+40,y,1,me?P.yel:P.cyan,'r',0); });
+      text('TAP TO PLAY AGAIN',W/2,H*0.14+78+105,1,P.white,'c'); }
     else { text('GAME OVER',W/2,H*0.36,3,P.red,'c'); text('SCORE '+score,W/2,H*0.36+28,2,P.white,'c'); text('LEVEL '+level,W/2,H*0.36+46,1,P.cyan,'c'); text(score>=best&&score>0?'NEW RECORD!':'BEST '+best,W/2,H*0.36+58,1,P.yel,'c'); text('TAP FOR NEW GAME',W/2,H*0.36+76,1,P.white,'c'); } }
 }
 function frame(t){ const dt=Math.min(50,t-t_last||16); t_last=t; update(dt); draw(t); requestAnimationFrame(frame); }
