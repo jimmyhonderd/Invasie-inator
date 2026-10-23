@@ -36,7 +36,7 @@ canvas{display:block}
 </head>
 <body>
 <div id="wrap"><canvas id="c"></canvas><canvas id="t"></canvas></div>
-<div id="nameBox" hidden><form class="box" id="nameForm"><h2>ARENA</h2><p>Vul je bijnaam in voor het scorebord.<br>Max. 12 tekens.</p><input id="nameIn" maxlength="12" autocomplete="off" placeholder="BIJNAAM" required><button type="submit">Speel</button><small>Alleen je bijnaam wordt opgeslagen.</small></form></div>
+<div id="nameBox" hidden><form class="box" id="nameForm"><h2>VWAB TOURNAMENT</h2><p>Vul je bijnaam in voor het scorebord.<br>Max. 12 tekens.</p><input id="nameIn" maxlength="12" autocomplete="off" placeholder="BIJNAAM" required><button type="submit">Speel</button><small>Alleen je bijnaam wordt opgeslagen.</small></form></div>
 <script>
 (() => {
 'use strict';
@@ -262,7 +262,7 @@ function band(t){
 }
 function hud(){
   text('SCORE',4,3,1,P.white,'l'); text(String(score).padStart(6,'0'),4,11,1,P.white,'l');
-  text(mode==='arena'?('ARENA · TEMPO '+level):('LEVEL '+String(level).padStart(2,'0')),W/2,3,1,P.yel,'c');
+  text(mode==='arena'?('TOURNAMENT · TEMPO '+level):('TRAINING · LEVEL '+String(level).padStart(2,'0')),W/2,3,1,P.yel,'c');
   text('LIVES',W-4,3,1,P.cyan,'r');
   for(let i=0;i<Math.max(0,Math.min(lives,5));i++) ctx.drawImage(shipSprite(),W-4-(i+1)*11,12,9,8);
   text('BEST '+best,W/2,11,1,'rgba(255,255,255,.55)','c',0);
@@ -280,8 +280,8 @@ function titleScreen(t){
   const fy=H*0.80; for(let c=0;c<6;c++){ const ty=['a3','a2','a1'][c%3]; drawInvader(ty,W/2-36+c*12+(ty==='a1'?-1:0),fy,(t/500|0)&1,colFor(ty)); }
   ctx.drawImage(shipSprite(),W/2-4|0,fy+16|0);
   ctx.strokeStyle=P.yel; ctx.lineWidth=1; ctx.strokeRect(M,H*0.40,W-2*M,H*0.12); ctx.strokeStyle=P.cyan; ctx.strokeRect(M,H*0.58,W-2*M,H*0.10);
-  text('ARENA',W/2,H*0.40+4,2,P.yel,'c'); text('EINDELOZE INVASIE · ONLINE SCOREBORD',W/2,H*0.40+22,1,'rgba(255,255,255,.75)','c',0); const tp=(online.top&&online.top[0])||board[0]; if(tp) text('TOP: '+tp.name+' '+tp.score,W/2,H*0.40+31,1,P.yel,'c',0);
-  text('KLASSIEK',W/2,H*0.58+4,2,P.cyan,'c'); text('LEVELS · BEST '+best,W/2,H*0.58+22,1,'rgba(255,255,255,.75)','c',0);
+  text('VWAB TOURNAMENT',W/2,H*0.40+4,2,P.yel,'c'); text('DOE MEE · ONLINE SCOREBORD',W/2,H*0.40+22,1,'rgba(255,255,255,.75)','c',0); const tp=(online.top&&online.top[0])||board[0]; if(tp) text('TOP: '+tp.name+' '+tp.score,W/2,H*0.40+31,1,P.yel,'c',0);
+  text('TRAINING',W/2,H*0.58+4,2,P.cyan,'c'); text('OEFENEN · TELT NIET MEE · BEST '+best,W/2,H*0.58+22,1,'rgba(255,255,255,.75)','c',0);
   text('SLEEP = BEWEGEN · TIK/VASTHOUDEN = VUREN',W/2,H*0.74+8,1,'rgba(255,255,255,.7)','c',0);
   if(store.name) text('SPELER: '+store.name,W/2,H*0.74+18,1,P.green,'c',0);
   text('LEDJOCKEY',W/2,H-12,1,'rgba(255,255,255,.4)','c',0);
@@ -304,7 +304,7 @@ function draw(t){
   ctx.restore();
   band(t); hud();
   for(const m of msgs) text(m.s,m.x,m.y-(900-m.l)*0.01,2,m.col,'c');
-  if(waveT>0) text(mode==='arena'?'ARENA':'LEVEL '+level,W/2,H*0.42,3,P.yel,'c');
+  if(waveT>0) text(mode==='arena'?'TOURNAMENT':'LEVEL '+level,W/2,H*0.42,3,P.yel,'c');
   if(hintT>0 && level===1){ text('SLEEP = BEWEGEN · TIK = VUREN',W/2,playArea.bottom-44,1,'rgba(255,255,255,.75)','c',0); }
   if(flash>0){ ctx.fillStyle=`rgba(255,60,60,${flash/900})`; ctx.fillRect(0,0,W,H); }
   if(state==='pause'){ veil(); text('PAUZE',W/2,H*0.42,3,P.yel,'c'); text('TIK OM VERDER TE GAAN',W/2,H*0.42+26,1,P.white,'c'); }
