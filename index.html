@@ -134,7 +134,7 @@ function arenaGameOver(){ if(arena.sent) return; arena.sent=true; const entry={n
   board.push(entry); board.sort((a,b)=>b.score-a.score); board=board.slice(0,100); store.arena=board; save(); lastRank=board.findIndex(e=>e===entry)+1; queueScore(entry); }
 let outbox=store.outbox||[];
 function queueScore(e){ outbox.push(e); store.outbox=outbox; save(); flushScores(); }
-const CFG_URL='https://jimmyhonderd.github.io/vwab-arena/config.json'; let API=store.api||''; let online={top:null,rank:0,total:0,t:0};
+const CFG_URL='https://jimmyhonderd.github.io/Vwab-arena/config.json'; let API=store.api||''; let online={top:null,rank:0,total:0,t:0};
 async function getApi(){ if(API) return API; try{ const d=await (await fetch(CFG_URL,{cache:'no-store'})).json(); if(d.api){ API=d.api; store.api=API; save(); } }catch(_){} return API; }
 async function sig(e){ const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(`invasie|${e.name}|${e.score}|${e.dur}|${e.ts}|vwab`)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('').slice(0,16); }
 let flushing=false;
