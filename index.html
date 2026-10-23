@@ -123,14 +123,14 @@ function layoutLevel(keep){
 function alive(){ return inv.filter(i=>i.alive); }
 function invPos(i){ return {x:form.x+i.c*form.cw+Math.floor((form.cw-(i.type==='a1'?10:8))/2), y:form.y+i.r*form.ch, w:i.type==='a1'?10:8, h:8}; }
 function newGame(m){ mode=m||mode; level=1; score=0; lives=3; state='play'; layoutLevel(false); hintT=4000; ship.dead=0;
-  if(mode==='arena'){ online.rank=0; online.total=0; online.err=''; online.claim=''; inv=inv.filter(i=>i.r<3); arena={kills:0,nextRow:9000,squadT:14000,combo:0,comboT:0,start:performance.now(),sent:false}; squads=[]; waveT=1200; }
+  if(mode==='arena'){ online.rank=0; online.total=0; online.err=''; online.claim=''; arena.ticket=''; getTicket(); inv=inv.filter(i=>i.r<3); arena={kills:0,nextRow:9000,squadT:14000,combo:0,comboT:0,start:performance.now(),sent:false}; squads=[]; waveT=1200; }
 }
 function startArena(){ if(!store.name){ document.getElementById('nameBox').hidden=false; setTimeout(()=>document.getElementById('nameIn').focus(),50); return; } newGame('arena'); }
 document.getElementById('nameForm').addEventListener('submit',e=>{ e.preventDefault(); const n=cleanName(document.getElementById('nameIn').value); if(!n){ document.getElementById('nameIn').value=''; document.getElementById('nameIn').placeholder='PICK ANOTHER NAME'; return; } store.name=n; save(); document.getElementById('nameBox').hidden=true; newGame('arena'); });
 function arenaAddRow(){ const live=alive(); const minR=live.length?Math.min(...live.map(i=>i.r)):0; if(form.y-form.ch<playArea.top+2) return false;
   for(const i of inv) i.r++; form.y-=form.ch; inv=inv.filter(i=>i.alive);
   const kinds=['a3','a2','a1']; const ty=kinds[(Math.random()*3)|0]; for(let c=0;c<form.cols;c++) inv.push({c,r:0,type:ty,alive:true}); return true; }
-function arenaGameOver(){ if(arena.sent) return; arena.sent=true; const entry={name:store.name||'ANONIEM',score,ts:Date.now(),dur:Math.round((performance.now()-arena.start)/1000)};
+function arenaGameOver(){ if(arena.sent) return; arena.sent=true; const entry={name:store.name||'ANONIEM',score,ts:Date.now(),dur:Math.round((performance.now()-arena.start)/1000),ticket:arena.ticket||''};
   board.push(entry); board.sort((a,b)=>b.score-a.score); board=board.slice(0,100); store.arena=board; save(); lastRank=board.findIndex(e=>e===entry)+1; queueScore(entry); }
 let outbox=store.outbox||[];
 if(!store.dev){ const a=new Uint8Array(16); crypto.getRandomValues(a); store.dev=[...a].map(x=>x.toString(16).padStart(2,'0')).join(''); save(); }
@@ -139,9 +139,10 @@ const CFG_URL='https://jimmyhonderd.github.io/Vwab-arena/config.json'; let API=s
 async function getApi(){ if(API) return API; try{ const d=await (await fetch(CFG_URL,{cache:'no-store'})).json(); if(d.api){ API=d.api; store.api=API; save(); } }catch(_){} return API; }
 async function sig(e){ const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(`invasie|${e.name}|${e.score}|${e.dur}|${e.ts}|vwab`)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('').slice(0,16); }
 let flushing=false;
+async function getTicket(){ try{ const api=await getApi(); if(!api) return; const r=await fetch(api+'/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({dev:store.dev})}); const d=await r.json(); if(d.ticket) arena.ticket=d.ticket; }catch(_){ } }
 async function flushScores(){ if(flushing||!outbox.length) return; flushing=true;
   try{ const api=await getApi(); if(!api){ online.err='no leaderboard connection'; return; } online.err='';
-    while(outbox.length){ const e=outbox[0]; const r=await fetch(api+'/score',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({game:'invasie',name:e.name,score:e.score,dur:e.dur,ts:e.ts,sig:await sig(e),dev:store.dev})});
+    while(outbox.length){ const e=outbox[0]; const r=await fetch(api+'/score',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({game:'invasie',name:e.name,score:e.score,dur:e.dur,ts:e.ts,sig:await sig(e),dev:store.dev,ticket:e.ticket||''})});
       if(r.status>=500||r.status===429) break; // later opnieuw
       const d=await r.json().catch(()=>({})); if(r.ok && d.claim){ const be=board.find(x=>x.ts===e.ts&&x.score===e.score); if(be){ be.claim=d.claim; be.id=d.id; store.arena=board; save(); } if(e.score===score && state==='over'){ online.claim=d.claim; } } if(r.ok && d.rank && e.score===score && state==='over'){ online.rank=d.rank; online.total=d.total; } if(!r.ok){ online.err=(d.error||('HTTP '+r.status)); }
       outbox.shift(); store.outbox=outbox; save(); }
@@ -335,7 +336,7 @@ function draw(t){
 }
 function frame(t){ const dt=Math.min(50,t-t_last||16); t_last=t; try{ update(dt); }catch(e){ console.error(e); } try{ draw(t); }catch(e){ console.error(e); } requestAnimationFrame(frame); }
 fit(); layoutLevel(false); requestAnimationFrame(frame);
-if(location.search.includes('debug')) window.__dbg={killAll:()=>inv.forEach(i=>i.alive=false),count:()=>alive().length,state:()=>state};
+if(location.search.includes('debug')) window.__dbg={killAll:()=>inv.forEach(i=>i.alive=false),count:()=>alive().length,state:()=>state,over:()=>{lives=-1;killShip();}};
 if('serviceWorker' in navigator) addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 })();
 </script>
